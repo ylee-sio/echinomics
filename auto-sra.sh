@@ -26,4 +26,4 @@ echo Extraction of SRR numbers complete. Output save as $dir/runids.txt
 echo Obtaining fastq files...
 cat $dir/runids.txt | parallel "echo Downloading {} ..."
 cat $dir/runids.txt | parallel fasterq-dump --split-files {} -O $dir/fastq -e 12 -t ~/dev/shm -p -x
-echo Download complete. All related files are located at $dir
+echo Download complete. All files located at $dir
