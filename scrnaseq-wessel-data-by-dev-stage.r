@@ -7,7 +7,6 @@ library(parallel)
 library(plotly)
 options(ncpus = 14)
 
-process_protein_df = function(main_scRNAseq_dataset, features_df, term1, term2){
 transform_prot_tibble = function(path){
   features_tibble = read_csv(path) %>%
     select(GeneID, Name) %>% 
@@ -140,31 +139,70 @@ intramutate = function(df, orig_search_list, replacement_list){
   return(df)
   
 }
+process_protein_df = function(main_scRNAseq_dataset, features_df, term1, term2){
+  
+  protein_gene_locs = get_gene_locs(main_scRNAseq_dataset, features_df)
+  protein_gene_names = get_gene_names(features_df, protein_gene_locs)
+  protein_loc_unique_list = get_unique_list(features_df, protein_gene_locs)
+  protein_loc_dup_list = get_dup_list(features_df)
+  
+  original_list = c(
+    rownames(x = urchin)[rownames(x = urchin) %>% str_detect(term1)],
+    rownames(x = urchin)[rownames(x = urchin) %>% str_detect(term2)]
+  )
+  original_list_tibble = tibble(GeneID = original_list, 
+                                protein = str_sub(original_list,1,3) %>% tolower(), 
+                                subfamily = str_sub(original_list,4,4) %>% tolower(), 
+                                member = str_sub(original_list,5) %>% tolower(),
+                                named_locus = original_list %>% tolower()
+  )
+  
+  final_combined_df = bind_rows(original_list_tibble, protein_loc_unique_list)
+  return(final_combined_df)
+}
+labelled_feature_plotter = function(scrna_df, feature_df){
+  
+  plot_list = FeaturePlot(scrna_df, features = feature_df$GeneID)
+  
+  for (i in 1:nrow(feature_df)){
+    plot_list[[i]] = plot_list[[i]] + ggtitle(feature_df$named_locus[i])
+  }
+  return(plot_list + NoLegend())
+}
+labelled_dot_plotter = function(scrna_df, feature_df){
+  
+  dp = DotPlot(scrna_df, features = feature_df$GeneID) + 
+    scale_x_discrete(breaks=c(feature_df$GeneID),
+                     labels=c(feature_df$named_locus)) +
+    RotatedAxis()
+  
+  return(dp)
+}
 
 urchin_0 =readRDS("~/projects/bioinfo/echinomics/test-datasets/scrna-seq/wessel-lab/GSE149221_SpInteg.rds")
 urchin_1 = RenameIdents(urchin_0,
-                      '0' = "aboral-ectoderm",
-                      '1' = "oral_ectoderm_eb",
-                      '2' = "ciliated_cells",
-                      '3' = "neural_8_to_eg",
-                      '4' = "oral_ectoderm_hb",
-                      '5' = "aboral_ectoderm/neural",
-                      '6' = "endoderm_hb",
-                      '7' = "ciliated_cells_m",
-                      '8' = "endoderm_endo-msd",
-                      '9' = "neural_AnEctoE",
-                      '10' = "transient_8_to_eb",
-                      '11' = "nsm_pigment_cells",
-                      '12' = "oral_ectoderm_64",
-                      '13' = "oral_ectoderm_m",
-                      '14' = "endoderm_eb",
-                      '15' = "wtf",
-                      '16' = "skeleton_64",
-                      '17' = "neural_AnEctoL",
-                      '18' = "neural_neuro_prog",
-                      '19' = "skeleton_hb",
-                      '20' = "transient",
-                      '21' = "germline")
+                        '0' = "aboral-ectoderm",
+                        '1' = "oral_ectoderm_eb",
+                        '2' = "ciliated_cells",
+                        '3' = "neural_8_to_eg",
+                        '4' = "oral_ectoderm_hb",
+                        '5' = "aboral_ectoderm/neural",
+                        '6' = "endoderm_hb",
+                        '7' = "ciliated_cells_m",
+                        '8' = "endoderm_endo-msd",
+                        '9' = "neural_AnEctoE",
+                        '10' = "transient_8_to_eb",
+                        '11' = "nsm_pigment_cells",
+                        '12' = "oral_ectoderm_64",
+                        '13' = "oral_ectoderm_m",
+                        '14' = "endoderm_eb",
+                        '15' = "wtf",
+                        '16' = "skeleton_64",
+                        '17' = "neural_AnEctoL",
+                        '18' = "neural_neuro_prog",
+                        '19' = "skeleton_hb",
+                        '20' = "transient",
+                        '21' = "germline")
 
 unique_orig_idents = unique(urchin_1@meta.data$orig.ident)
 unique_orig_idents_replacements = c("8 Cell",
@@ -188,8 +226,6 @@ mb = subset(urchin_1, orig.ident == "Mid Blastula")
 eg = subset(urchin_1, orig.ident == "Early Gastrula")
 lg = subset(urchin_1, orig.ident == "Late Gastrula")
 
-
-
 features_abc = read_csv("abc_list.csv") %>%
   select(GeneID, protein, subfamily, member)
 features_slc = read_csv("slc_list.csv") %>%
@@ -201,27 +237,6 @@ features_nhr = read_csv("nhr_list.csv") %>%
   drop_na()
 features_final = read_csv("final_curation.csv")
 
-  
-  protein_gene_locs = get_gene_locs(main_scRNAseq_dataset, features_df)
-  protein_gene_names = get_gene_names(features_df, protein_gene_locs)
-  protein_loc_unique_list = get_unique_list(features_df, protein_gene_locs)
-  protein_loc_dup_list = get_dup_list(features_df)
-  
-  original_list = c(
-    rownames(x = urchin)[rownames(x = urchin) %>% str_detect(term1)],
-    rownames(x = urchin)[rownames(x = urchin) %>% str_detect(term2)]
-  )
-  original_list_tibble = tibble(GeneID = original_list, 
-                                protein = str_sub(original_list,1,3) %>% tolower(), 
-                                subfamily = str_sub(original_list,4,4) %>% tolower(), 
-                                member = str_sub(original_list,5) %>% tolower(),
-                                named_locus = original_list %>% tolower()
-  )
-  
-  final_combined_df = bind_rows(original_list_tibble, protein_loc_unique_list)
-  return(final_combined_df)
-}
-
 abcb = process_protein_df(urchin, features_abc, "abc", "ABC") %>% 
   subset(subfamily=="b") 
 abcc = process_protein_df(urchin, features_abc, "abc", "ABC") %>% 
@@ -232,12 +247,14 @@ nhrs = process_protein_df(urchin, features_nhr, "nr", "nhr") %>%
   transmute(GeneID = GeneID, named_locus = Name) %>% 
   drop_na()
 
+# temp_efficient_plot(abcb, "abcb_x")
+# temp_efficient_plot(abcc, "abcc_x")
+# temp_efficient_plot(slc, "slc")
+# temp_efficient_plot(cyps, "cyp")
+# temp_efficient_plot(nhrs, "nhr")
 
-
-
-temp_efficient_plot(abcb, "abcb_x")
-temp_efficient_plot(abcc, "abcc_x")
-temp_efficient_plot(slc, "slc")
-temp_efficient_plot(cyps, "cyp")
-temp_efficient_plot(nhrs, "nhr")
-
+labelled_dot_plotter(mb, abcc[7:10,])
+labelled_dot_plotter(eg, abcc[7:10,])
+a = labelled_feature_plotter(mb, abcc[9,]) %>% ggplotly()
+b = DimPlot(mb) %>% ggplotly()
+subplot(a,b)
