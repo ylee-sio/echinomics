@@ -5,6 +5,7 @@ library(tidyverse)
 library(gridExtra)
 library(parallel)
 library(plotly)
+library(cowplot)
 options(ncpus = 14)
 
 transform_prot_tibble = function(path){
@@ -147,8 +148,8 @@ process_protein_df = function(main_scRNAseq_dataset, features_df, term1, term2){
   protein_loc_dup_list = get_dup_list(features_df)
   
   original_list = c(
-    rownames(x = urchin)[rownames(x = urchin) %>% str_detect(term1)],
-    rownames(x = urchin)[rownames(x = urchin) %>% str_detect(term2)]
+    rownames(x = main_scRNAseq_dataset)[rownames(x = main_scRNAseq_dataset) %>% str_detect(term1)],
+    rownames(x = main_scRNAseq_dataset)[rownames(x = main_scRNAseq_dataset) %>% str_detect(term2)]
   )
   original_list_tibble = tibble(GeneID = original_list, 
                                 protein = str_sub(original_list,1,3) %>% tolower(), 
@@ -229,7 +230,7 @@ lg = subset(urchin_1, orig.ident == "Late Gastrula")
 features_abc = read_csv("abc_list.csv") %>%
   select(GeneID, protein, subfamily, member)
 features_slc = read_csv("slc_list.csv") %>%
-  select(GeneID, protein, subfamily, member) 
+  select(GeneID, protein, subfamily, member)
 features_cyps = read_csv("cyps_list.csv") %>%
   select(GeneID, protein, subfamily, member) 
 features_nhr = read_csv("nhr_list.csv") %>%
@@ -237,13 +238,14 @@ features_nhr = read_csv("nhr_list.csv") %>%
   drop_na()
 features_final = read_csv("final_curation.csv")
 
-abcb = process_protein_df(urchin, features_abc, "abc", "ABC") %>% 
+abcb = process_protein_df(urchin_1, features_abc, "abc", "ABC") %>% 
   subset(subfamily=="b") 
-abcc = process_protein_df(urchin, features_abc, "abc", "ABC") %>% 
+abcc = process_protein_df(urchin_1, features_abc, "abc", "ABC") %>% 
   filter(subfamily=="c") 
-slc = process_protein_df(urchin, features_slc, "slc", "SLC")
-cyps = process_protein_df(urchin, features_cyps, "cyp", "CYP")
-nhrs = process_protein_df(urchin, features_nhr, "nr", "nhr") %>% 
+slc_0 = process_protein_df(urchin_1, features_slc, "slc", "SLC")
+slc = slc_0[-c(2,3,4,5,6,10,11,12,13,14,19),]
+cyps = process_protein_df(urchin_1, features_cyps, "cyp", "CYP")
+nhrs = process_protein_df(urchin_1, features_nhr, "nr", "nhr") %>% 
   transmute(GeneID = GeneID, named_locus = Name) %>% 
   drop_na()
 
@@ -253,8 +255,14 @@ nhrs = process_protein_df(urchin, features_nhr, "nr", "nhr") %>%
 # temp_efficient_plot(cyps, "cyp")
 # temp_efficient_plot(nhrs, "nhr")
 
-labelled_dot_plotter(mb, abcc[7:10,])
+labelled_dot_plotter(mb, slc)
 labelled_dot_plotter(eg, abcc[7:10,])
-a = labelled_feature_plotter(mb, abcc[9,]) %>% ggplotly()
-b = DimPlot(mb) %>% ggplotly()
-subplot(a,b)
+a = labelled_feature_plotter(mb, slc[1:3,]) 
+b = DimPlot(mb)
+rownames(urchin_1) %in% slc$GeneID %>% sum()
+
+devolist = c(cell8, cell64, morula, eb, hb, mb, eg, lg)
+a = map2(.x = devolist, .y = unique_orig_idents_replacements, .f = function(x,y) (labelled_dot_plotter(x,slc) + ggtitle(y)))
+pdf("slc_dotplot.pdf", onefile = T, width = 16, height = 9)
+a
+dev.off()
