@@ -7,6 +7,7 @@ library(parallel)
 library(plotly)
 options(ncpus = 14)
 
+process_protein_df = function(main_scRNAseq_dataset, features_df, term1, term2){
 transform_prot_tibble = function(path){
   features_tibble = read_csv(path) %>%
     select(GeneID, Name) %>% 
@@ -126,8 +127,68 @@ temp_efficient_plot = function(protein_df,protein_name){
   plot_all_stages_specific_protein(lg,protein_df,"late_gastrula",as.character(protein_name))
 
 }
+intramutate = function(df, orig_search_list, replacement_list){
+  
+  for (i in 1:length(replacement_list)){
+    
+    df = case_when(
+      df == orig_search_list[i] ~ replacement_list[i],
+      df != orig_search_list[i] ~ df
+    )
+  }
+  
+  return(df)
+  
+}
 
-urchin =readRDS("~/projects/bioinfo/echinomics/test-datasets/scrna-seq/wessel-lab/GSE149221_SpInteg.rds")
+urchin_0 =readRDS("~/projects/bioinfo/echinomics/test-datasets/scrna-seq/wessel-lab/GSE149221_SpInteg.rds")
+urchin_1 = RenameIdents(urchin_0,
+                      '0' = "aboral-ectoderm",
+                      '1' = "oral_ectoderm_eb",
+                      '2' = "ciliated_cells",
+                      '3' = "neural_8_to_eg",
+                      '4' = "oral_ectoderm_hb",
+                      '5' = "aboral_ectoderm/neural",
+                      '6' = "endoderm_hb",
+                      '7' = "ciliated_cells_m",
+                      '8' = "endoderm_endo-msd",
+                      '9' = "neural_AnEctoE",
+                      '10' = "transient_8_to_eb",
+                      '11' = "nsm_pigment_cells",
+                      '12' = "oral_ectoderm_64",
+                      '13' = "oral_ectoderm_m",
+                      '14' = "endoderm_eb",
+                      '15' = "wtf",
+                      '16' = "skeleton_64",
+                      '17' = "neural_AnEctoL",
+                      '18' = "neural_neuro_prog",
+                      '19' = "skeleton_hb",
+                      '20' = "transient",
+                      '21' = "germline")
+
+unique_orig_idents = unique(urchin_1@meta.data$orig.ident)
+unique_orig_idents_replacements = c("8 Cell",
+                                    "64 Cell",
+                                    "Morula",
+                                    "Early Blastula",
+                                    "Hatched Blastula",
+                                    "Mid Blastula",
+                                    "Early Gastrula",
+                                    "Late Gastrula")
+
+
+urchin_1@meta.data$orig.ident = intramutate(urchin_1@meta.data$orig.ident, unique_orig_idents, unique_orig_idents_replacements)
+
+cell8 = subset(urchin_1, orig.ident == "8 Cell")
+cell64 = subset(urchin_1, orig.ident == "64 Cell")
+morula = subset(urchin_1, orig.ident == "Morula")
+eb = subset(urchin_1, orig.ident == "Early Blastula")
+hb = subset(urchin_1, orig.ident == "Hatched Blastula")
+mb = subset(urchin_1, orig.ident == "Mid Blastula")
+eg = subset(urchin_1, orig.ident == "Early Gastrula")
+lg = subset(urchin_1, orig.ident == "Late Gastrula")
+
+
 
 features_abc = read_csv("abc_list.csv") %>%
   select(GeneID, protein, subfamily, member)
@@ -140,31 +201,6 @@ features_nhr = read_csv("nhr_list.csv") %>%
   drop_na()
 features_final = read_csv("final_curation.csv")
 
-urchin = RenameIdents(urchin,
-                  '0' = "aboral-ectoderm",
-                  '1' = "oral_ectoderm_eb",
-                  '2' = "ciliated_cells",
-                  '3' = "neural_8_to_eg",
-                  '4' = "oral_ectoderm_hb",
-                  '5' = "aboral_ectoderm/neural",
-                  '6' = "endoderm_hb",
-                  '7' = "ciliated_cells_m",
-                  '8' = "endoderm_endo-msd",
-                  '9' = "neural_AnEctoE",
-                  '10' = "transient_8_to_eb",
-                  '11' = "nsm_pigment_cells",
-                  '12' = "oral_ectoderm_64",
-                  '13' = "oral_ectoderm_m",
-                  '14' = "endoderm_eb",
-                  '15' = "wtf",
-                  '16' = "skeleton_64",
-                  '17' = "neural_AnEctoL",
-                  '18' = "neural_neuro_prog",
-                  '19' = "skeleton_hb",
-                  '20' = "transient",
-                  '21' = "germline")
-
-process_protein_df = function(main_scRNAseq_dataset, features_df, term1, term2){
   
   protein_gene_locs = get_gene_locs(main_scRNAseq_dataset, features_df)
   protein_gene_names = get_gene_names(features_df, protein_gene_locs)
@@ -196,38 +232,8 @@ nhrs = process_protein_df(urchin, features_nhr, "nr", "nhr") %>%
   transmute(GeneID = GeneID, named_locus = Name) %>% 
   drop_na()
 
-# 8 cell stage stage *************************************************************************************************************
-p1_bc_cell8 = read_tsv("~/projects/bioinfo/echinomics/test-datasets/scrna-seq/wessel-lab/8cell/GSM4494538_Sp1_barcodes.tsv") %>% as_vector()
-bc_cell8 = paste0("Sp1_", str_sub(p1_bc_cell8, 1, 16))
-cell8 = subset(urchin, cells = bc_cell8)
-# 64 cell stage stage *************************************************************************************************************
-p1_bc_cell64 = read_tsv("~/projects/bioinfo/echinomics/test-datasets/scrna-seq/wessel-lab/64cell/GSM4494539_Sp2_barcodes.tsv") %>% as_vector()
-bc_cell64 = paste0("Sp2_", str_sub(p1_bc_cell64, 1, 16))
-cell64 = subset(urchin, cells = bc_cell64)
-# morula stage *************************************************************************************************************
-p1_bc_morula = read_tsv("~/projects/bioinfo/echinomics//test-datasets/scrna-seq/wessel-lab/morula/GSM4494540_Sp3_barcodes.tsv") %>% as_vector()
-bc_morula = paste0("Sp3_", str_sub(p1_bc_morula, 1, 16))
-morula = subset(urchin, cells = bc_morula)
-# eb stage *************************************************************************************************************
-p1_bc_eb = read_tsv("~/projects/bioinfo/echinomics/test-datasets/scrna-seq/wessel-lab/early_blastula//GSM4494541_SpEB_barcodes.tsv") %>% as_vector()
-bc_eb = paste0("EB_", str_sub(p1_bc_eb, 1, 16))
-eb = subset(urchin, cells = bc_eb)
-# hb stage *************************************************************************************************************
-p1_bc_hb = read_tsv("~/projects/bioinfo/echinomics/test-datasets/scrna-seq/wessel-lab/hatched_blastula/GSM4494542_AGG1_SpHB_barcodes.tsv") %>% as_vector()
-bc_hb = paste0("HB_", str_sub(p1_bc_hb, 1, 18))
-hb = subset(urchin, cells = bc_hb)
-# mb stage *************************************************************************************************************
-p1_bc_mb = read_tsv("~/projects/bioinfo/echinomics/test-datasets/scrna-seq/wessel-lab/mid_blastula/GSM4494543_AGG2_SpMB_barcodes.tsv") %>% as_vector()
-bc_mb = paste0("MB_", str_sub(p1_bc_mb, 1, 18))
-mb = subset(urchin, cells = bc_mb)
-# eg stage ***************************** ********************************************************************************
-p1_bc_eg = read_tsv("~/projects/bioinfo/echinomics/test-datasets/scrna-seq/wessel-lab/early_gastrula/GSM4494544_AGG3_SpEG_barcodes.tsv") %>% as_vector()
-bc_eg = paste0("EG_", str_sub(p1_bc_eg, 1, 18))
-eg = subset(urchin, cells = bc_eg)
-# lg stage *************************************************************************************************************
-p1_bc_lg = read_tsv("~/projects/bioinfo/echinomics/test-datasets/scrna-seq/wessel-lab/late_gastrula/GSM4494545_AGG4_SpLG_barcodes.tsv") %>% as_vector()
-bc_lg = paste0("LG_", str_sub(p1_bc_lg, 1, 18))
-lg = subset(urchin, cells = bc_lg)
+
+
 
 temp_efficient_plot(abcb, "abcb_x")
 temp_efficient_plot(abcc, "abcc_x")
