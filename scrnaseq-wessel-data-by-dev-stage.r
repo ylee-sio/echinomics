@@ -6,6 +6,7 @@ library(gridExtra)
 library(parallel)
 library(plotly)
 library(cowplot)
+library(grid)
 options(ncpus = 14)
 
 transform_prot_tibble = function(path){
@@ -238,10 +239,12 @@ features_nhr = read_csv("nhr_list.csv") %>%
   drop_na()
 features_final = read_csv("final_curation.csv")
 
-abcb = process_protein_df(urchin_1, features_abc, "abc", "ABC") %>% 
+abcb_0 = process_protein_df(urchin_1, features_abc, "abc", "ABC") %>% 
   subset(subfamily=="b") 
-abcc = process_protein_df(urchin_1, features_abc, "abc", "ABC") %>% 
+abcb = abcb[-8,]
+abcc_0 = process_protein_df(urchin_1, features_abc, "abc", "ABC") %>% 
   filter(subfamily=="c") 
+abcc = abcc_0[-c(6,17,19),]
 slc_0 = process_protein_df(urchin_1, features_slc, "slc", "SLC")
 slc = slc_0[-c(2,3,4,5,6,10,11,12,13,14,19),]
 cyps = process_protein_df(urchin_1, features_cyps, "cyp", "CYP")
@@ -259,10 +262,21 @@ labelled_dot_plotter(mb, slc)
 labelled_dot_plotter(eg, abcc[7:10,])
 a = labelled_feature_plotter(mb, slc[1:3,]) 
 b = DimPlot(mb)
-rownames(urchin_1) %in% slc$GeneID %>% sum()
-
+View(abcc_0)
 devolist = c(cell8, cell64, morula, eb, hb, mb, eg, lg)
-a = map2(.x = devolist, .y = unique_orig_idents_replacements, .f = function(x,y) (labelled_dot_plotter(x,slc) + ggtitle(y)))
-pdf("slc_dotplot.pdf", onefile = T, width = 16, height = 9)
-a
+
+al = map2(.x = devolist, .y = unique_orig_idents_replacements, .f = function(x,y) (DimPlot(x) + ggtitle(y)))
+pdf("all_dev_stage_tsne.pdf", onefile = T, width=12, height = 8)
+al
 dev.off()
+
+bl = map2(.x = devolist, .y = unique_orig_idents_replacements, .f = function(x,y) (labelled_dot_plotter(x,abcc[11:20,]) + ggtitle(y)))
+pdf("abcc_dotplot_2.pdf", onefile = T, width = 16, height = 9)
+bl
+dev.off()
+
+cl = map2(.x = devolist, .y = unique_orig_idents_replacements, .f = function(x,y) (labelled_feature_plotter(x,abcc[11:20,]) + plot_annotation(title = y)))
+pdf("abcc_featureplot_2.pdf", onefile = T, width = 21, height = 12)
+cl
+dev.off()
+
