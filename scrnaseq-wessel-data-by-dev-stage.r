@@ -7,6 +7,7 @@ library(parallel)
 library(plotly)
 library(cowplot)
 library(grid)
+library(tidyr)
 options(ncpus = 14)
 
 transform_prot_tibble = function(path){
@@ -219,7 +220,7 @@ unique_orig_idents_replacements = c("8 Cell",
 
 urchin_1@meta.data$orig.ident = intramutate(urchin_1@meta.data$orig.ident, unique_orig_idents, unique_orig_idents_replacements)
 
-cell8 = subset(urchin_1, orig.ident == "8 Cell")
+cell8 = subset(urchin_1, orig.ident  == "8 Cell")
 cell64 = subset(urchin_1, orig.ident == "64 Cell")
 morula = subset(urchin_1, orig.ident == "Morula")
 eb = subset(urchin_1, orig.ident == "Early Blastula")
@@ -241,7 +242,7 @@ features_final = read_csv("final_curation.csv")
 
 abcb_0 = process_protein_df(urchin_1, features_abc, "abc", "ABC") %>% 
   subset(subfamily=="b") 
-abcb = abcb[-8,]
+abcb = abcb_0[-8,]
 abcc_0 = process_protein_df(urchin_1, features_abc, "abc", "ABC") %>% 
   filter(subfamily=="c") 
 abcc = abcc_0[-c(6,17,19),]
@@ -251,6 +252,15 @@ cyps = process_protein_df(urchin_1, features_cyps, "cyp", "CYP")
 nhrs = process_protein_df(urchin_1, features_nhr, "nr", "nhr") %>% 
   transmute(GeneID = GeneID, named_locus = Name) %>% 
   drop_na()
+
+c5_test1 = rownames(urchin_1) %in% c("LOC591982",
+                          "LOC752233",
+                          "LOC755624",
+                          "LOC579421",
+                          "LOC590074")
+c5_test2 = rownames(urchin_1)[c5_test1]
+
+c5_test3 = tibble(GeneID = c(c5_test2, "ABCC5a", "cell_typeA_score1","ABCC1", "ABCC9a"), named_locus = c("ABCC4a", "ABCC4d","ABCC4c","ABCC4b","ABCC5A_just_added", "ABCC5a","ABCC5a_combined", "ABCC1", "ABCC9a"))
 
 # temp_efficient_plot(abcb, "abcb_x")
 # temp_efficient_plot(abcc, "abcc_x")
@@ -270,8 +280,8 @@ pdf("all_dev_stage_tsne.pdf", onefile = T, width=12, height = 8)
 al
 dev.off()
 
-bl = map2(.x = devolist, .y = unique_orig_idents_replacements, .f = function(x,y) (labelled_dot_plotter(x,abcc[11:20,]) + ggtitle(y)))
-pdf("abcc_dotplot_2.pdf", onefile = T, width = 16, height = 9)
+bl = map2(.x = devolist, .y = unique_orig_idents_replacements, .f = function(x,y) (labelled_dot_plotter(x,c5_test3) + ggtitle(y)))
+pdf("abcc_dotplot_cleaned_test1.pdf", onefile = T, width = 16, height = 9)
 bl
 dev.off()
 
@@ -279,4 +289,8 @@ cl = map2(.x = devolist, .y = unique_orig_idents_replacements, .f = function(x,y
 pdf("abcc_featureplot_2.pdf", onefile = T, width = 21, height = 12)
 cl
 dev.off()
+
+cell_typeA_marker_gene_list <- list(c("ABCC5a", "LOC590074"))
+object <- AddModuleScore(object = mb, features = cell_typeA_marker_gene_list, name = "cell_typeA_score")
+FeaturePlot(object = object, features = "cell_typeA_score1")
 
